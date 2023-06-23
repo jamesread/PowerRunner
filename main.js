@@ -1,6 +1,122 @@
 class GameState {
   constructor() {
-    this.coins = 0
+    this.coins = 25
+    this.girderValue = 20
+    this.playerSpeed = 70
+    this.playerMaxHealth = 250
+    this.playerCurrentHealth = this.playerMaxHealth
+  }
+}
+
+class ShopItem {
+  constructor() {
+    this.level = 1
+    console.log("creating shop item")
+  }
+
+  getLevel() {
+    return this.level
+  }
+}
+
+class ShopItemSpeed extends ShopItem {
+  onBuy() {
+    window.gameState.playerSpeed += 30
+  }
+
+  getName() {
+    return "Speed"
+  }
+
+  getCost() {
+    return this.level * 30
+  }
+}
+
+class ShopItemRefinery extends ShopItem {
+  onBuy() {
+    window.gameState.girderValue += 5
+  }
+
+  getName() {
+    return "Refinery"
+  }
+
+  getCost() {
+    return this.level * 3
+  }
+}
+
+class ShopItemHealth extends ShopItem {
+  onBuy() {
+    window.gameState.playerMaxHealth += 50
+  }
+
+  getName() {
+    return "Health"
+  }
+
+  getCost() {
+    return Math.floor((this.level * 3) * 2.2)
+  }
+}
+
+class BonusScene extends Phaser.Scene {
+  constructor() {
+    super({
+      key: "bonus",
+      active: false,
+    })
+  }
+
+  create() {
+    this.txtTitle = this.add.text(300, 10, "Bonus!", {fontSize: 30, color: "black" })
+    this.txt = this.add.text(300, 300, "?", {fontFamily: "sans-serif", fontSize: 42, color: "black" })
+
+    this.block = this.add.rectangle(300, 500, 50, 50, 0x448833)
+
+    this.animation = this.tweens.addCounter({
+      from: -300,
+      to: 300,
+      yoyo: true,
+      duration: 1000,
+      persist: true,
+      repeat: -1,
+      onUpdate: (tween) => {
+        this.block.setPosition(400 + (tween.getValue()), 400)
+        this.block.setFillStyle(tween.getValue() * 100)
+        this.txt.setText(Math.round(tween.getValue()))
+      },
+    })
+
+
+    this.tweenGetBonus = this.tweens.addCounter({
+      forom: 42,
+      to: 60,
+      yoyo: true,
+      duration: 500,
+      repeat: 1,
+      start: false,
+      onUpdate: (tween) => {
+        this.txt.setFontSize(Math.round(tween.getValue()))
+      }
+    })
+
+    this.input.on('pointerdown', (p) => {
+      this.onPoint()
+    })
+  }
+
+  onPoint() {
+    this.animation.stop()
+    this.tweenGetBonus.restart()
+
+    window.gameState.coins += Math.round(this.animation.getValue())
+
+
+    setTimeout(() => {
+      this.scene.start('shop')
+    }, 1000)
   }
 }
 
@@ -11,25 +127,30 @@ class ShopScene extends Phaser.Scene {
       active: false,
     })
 
-    this.countShopItems = 0
+    this.shopItems = []
+    this.constructShopItem(new ShopItemSpeed())
+    this.constructShopItem(new ShopItemRefinery())
+    this.constructShopItem(new ShopItemHealth())
+  }
+
+  constructShopItem(i) {
+    this.shopItems.push(i)
   }
 
   create() {
-    let textStyle = {color: "#000000", fontSize: 16, fontFamily: "sens-serif"}
+    var textStyle = {color: "#000000", fontSize: 16, fontFamily: "sens-serif"}
 
     this.txtCoins = this.add.text(10, 10, "coins", textStyle)
     this.txtShopTitle = this.add.text(300, 10, "Shop", textStyle)
     this.txtShopTitle.setFontSize(30);
-    
-    this.btnClose = this.createGuiButton("Close", this.onBtnCloseClicked, {region: "bl"})
-    this.btnSellCoins = this.createGuiButton("Sell", this.onBtnSellCoinsClicked, {region: "br"})
 
-    this.createShopItem("speed", 100)
-    this.createShopItem("armour", 50)
+    this.btnNextLevel = this.createGuiButton("Next Level", () => { this.onBtnNextLevelClicked() }, {region: "br", style: "good"})
+
+    this.createShopButtons()
   }
-  
-  onBtnCloseClicked() {
-    console.log("close")
+
+  onBtnNextLevelClicked() {
+    this.scene.start("level")
   }
 
   onBtnSellCoinsClicked() {
@@ -54,51 +175,97 @@ class ShopScene extends Phaser.Scene {
     return position
   }
 
-  createGuiButton(name, onclick, position) {
-    const colorBgInactive = 0x333333
-    const colorBgHover = 0x555555
-    const colorBgClick = 0x666666
+  applyColorsFromProps(props, btn) {
+    var ret = 0x333333
 
-    position = this.regionToAbsolute(position)
+    if (props.style == "good") {
+      ret = 0x005000
+    }
+
+    return ret
+   }
+
+  createGuiButton(name, onclick, props) {
+    let position = this.regionToAbsolute(props)
     const x = position.x
     const y = position.y
 
-    const btn = this.add.rectangle(x, y, 250, 50, colorBgInactive)
+    const btn = this.add.rectangle(x, y, 250, 50, 0x000000)
     btn.setInteractive()
 
-    let txt = this.add.text(x, y, name, {fontFamily: "sans-serif", fontSize: 16, color: "#ffffff"})
-    txt.setPosition(x - txt.width / 2, y - (16/2))
+    btn.updateColors = (col) => {
+      btn.bgInactive = col
+      btn.setFillStyle(col)
+
+      btn.bgHover = btn.bgInactive * 2
+      btn.bgFocus = btn.bgInactive / 3
+    }
+
+    btn.updateColors(this.applyColorsFromProps(props))
+
+    btn.label = this.add.text(x, y, name, {fontFamily: "sans-serif", fontSize: 16, color: "#ffffff"})
+    btn.label.setPosition(x - btn.label.width / 2, y - (16/2))
 
     btn.on('pointerover', () => {
-      btn.setFillStyle(colorBgHover);
+      btn.setFillStyle(btn.bgHover);
     })
 
     btn.on('pointerout', () => {
-      btn.setFillStyle(colorBgInactive);
+      btn.setFillStyle(btn.bgInactive);
     })
 
     btn.on('pointerdown', () => {
-      btn.setFillStyle(colorBgClick);
+      btn.setFillStyle(btn.bgFocus);
       onclick()
     })
 
     btn.on('pointerup', () => {
-      btn.setFillStyle(colorBgInactive);
+      btn.setFillStyle(btn.bgInactive);
     })
 
     return btn
   }
 
-  createShopItem(name, cost) {
-    this.countShopItems++;
-    let y = 200 + (this.countShopItems * 60)
-    this.createGuiButton(name + " (" + cost + ")", (cost) => {
-      this.onBuy(cost)
-    }, {"x": 200, "y": y})
+  createShopButtons() {
+    var y = 200;
+
+    for (let item of this.shopItems) {
+      var btn = this.createGuiButton("", () => {
+        var cost = item.getCost()
+
+        if (cost <= window.gameState.coins) {
+          window.gameState.coins -= cost
+
+          item.level++
+          item.onBuy()
+        }
+
+        this.refreshShopButtons()
+      }, {"x": 200, "y": y})
+
+      item.button = btn
+
+      y += 60
+    }
+
+    this.refreshShopButtons()
   }
 
-  onBuy(cost) {
-    console.log("buy", cost)
+  refreshShopButtons() {
+    for (let item of this.shopItems) {
+      if (item.getCost() > window.gameState.coins) {
+        item.button.updateColors(0x990000)
+      } else {
+        item.button.updateColors(0x009900)
+      }
+
+      item.button.label.setText(item.getName() + " Level " + item.getLevel() + " (" + item.getCost() + " coins)")
+      item.button.label.setPosition(item.button.x - item.button.label.width / 2, item.button.y - (16/2))
+    }
+  }
+
+  update() {
+    this.txtCoins.setText("Coins: " + window.gameState.coins)
   }
 }
 
@@ -112,13 +279,12 @@ class LevelScene extends Phaser.Scene {
       key: "level"
     });
 
-    this.playerSpeed = 70;
     this.girderSpeed = 130;
-    this.girdersRemaining = 0;
+    this.destructableGirdersRemaining = 0;
 
     // hud
-    this.coins = 0;
     this.level = 0;
+    console.log("lvlscene")
   }
 
   create() {
@@ -145,23 +311,28 @@ class LevelScene extends Phaser.Scene {
 
     this.level++;
 
-    let girderCount = this.level * 2;
-    let girderInterval = 900 - (this.level / 5);
+    this.countGoodGirdersMissed = 0;
+    window.gameState.playerCurrentHealth = window.gameState.playerMaxHealth
+
+    var girderCount = this.level * 2;
+    var girderInterval = 900 - (this.level / 5);
 
     for (let i = 0; i < girderCount; i++) {
       setTimeout(() => {
-        this.createGirder()
+        this.createGirder(true)
       }, i * girderInterval)
     }
 
-    this.girdersRemaining = girderCount
+    this.destructableGirdersRemaining = girderCount
   }
 
   createHud() {
-    let textStyle = {color: "#000000", fontSize: 16, fontFamily: "sens-serif"}
+    var textStyle = {color: "#000000", fontSize: 16, fontFamily: "sens-serif"}
 
     this.txtCoins = this.add.text(10, 10, "coins", textStyle)
+    this.txtCoins.setShadow(1, 1, '#ffffff')
     this.txtLevel = this.add.text(200, 10, "lvl", textStyle)
+    this.txtHp = this.add.text(300, 10, "hp", textStyle)
 
     this.tweenLevelCounter = this.tweens.addCounter({
       from: 0,
@@ -202,12 +373,41 @@ class LevelScene extends Phaser.Scene {
         }
       ]
     })
+
+    this.tweenCoinsChanged = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      yoyo: true,
+      repeat: 0,
+      persist: true,
+      duration: 100,
+      onUpdate: (tween) => {
+        this.txtCoins.setFontSize(16 + (3 * tween.getValue()))
+      }
+    })
+
+    this.tweenHpChanged = this.tweens.addCounter({
+      from: 0,
+      to: 1,
+      yoyo: true,
+      repeat: 0,
+      persist: true,
+      duration: 100,
+      onUpdate: (tween) => {
+        this.txtHp.setFontSize(16 + (3 * tween.getValue()))
+      }
+    });
+  }
+
+  addCoins(v) {
+    window.gameState.coins += v
+    this.tweenCoinsChanged.restart()
   }
 
   createFloor() {
-    let w = this.sys.game.canvas.width;
-    let h = 5;
-    let rect = new Phaser.Geom.Rectangle(0, 0, w, 5)
+    var w = this.sys.game.canvas.width;
+    var h = 5;
+    var rect = new Phaser.Geom.Rectangle(0, 0, w, 5)
 
     this.floor = this.add.graphics({fillStyle: { color: 0x000099 }})
     this.floor.fillRectShape(rect)
@@ -217,53 +417,93 @@ class LevelScene extends Phaser.Scene {
     this.floor.body.setSize(w, h)
   }
 
-  createGirder() {
-    let w = 100
-    let h = 20
-    let rect = new Phaser.Geom.Rectangle(0, 0, w, h)
+  createGirder(isDestructable) {
+    var w = 100
+    var h = 20
+    var x = Math.random() * (this.sys.game.canvas.width - 100)
+    var isGood = randomBool()
+    var color = isGood ? 0x009900 : 0x990000
+
+    if (!isDestructable) {
+      x = 0
+      w = this.sys.game.canvas.width
+      color = 0x000000
+    }
+
+    var rect = new Phaser.Geom.Rectangle(0, 0, w, h)
 
     this.girder = this.add.graphics()
-    this.girder.isGood = randomBool()
-    this.girder.fillStyle(this.girder.isGood ? 0x009900 : 0x990000 )
+    this.girder.isGood = isGood
+    this.girder.isDestructable = isDestructable
+    this.girder.fillStyle(color)
     this.girder.fillRectShape(rect)
     this.physics.world.enable(this.girder);
-    this.girder.setPosition(Math.random() * (this.sys.game.canvas.width - 100), 100)
+    this.girder.setPosition(x, 100)
     this.girder.body.setSize(w, h)
-    this.girder.body.setVelocityY(this.girderSpeed)
+    
+    if (isDestructable) {
+      this.girder.body.setVelocityY(this.girderSpeed)
+    } else {
+      this.girder.body.setVelocityY(this.girderSpeed * 2)
+    }
 
     this.physics.add.collider(this.girder, this.player, (g, p) => { this.onGirderCollidePlayer(g, p) } )
     this.physics.add.collider(this.girder, this.floor, (g, f) => { this.onGirderCollideFloor(g, f) } )
   }
 
+  createDeathGirder() {
+    this.createGirder(false)
+  }
+
+
   onGirderCollidePlayer(girder, player) {
     girder.destroy();
 
-    if (girder.isGood) {
-      this.coins += 5
+    if (girder.isDestructable) {
+      if (girder.isGood) {
+        this.addCoins(window.gameState.girderValue)
+      } else {
+        this.addCoins(-10)
+      }
     } else {
-      this.coins -= 5
+      window.gameState.playerCurrentHealth -= 100
+      this.tweenHpChanged.restart()
+      this.addCoins(10)
     }
 
-    this.onGirderDestroyed()
+    this.onGirderDestroyed(girder.isDestructable)
   }
 
   onGirderCollideFloor(girder, floor) {
     girder.destroy();
 
-    this.onGirderDestroyed()
+    if (girder.isGood) {
+      this.countGoodGirdersMissed++
+    }
+
+    this.onGirderDestroyed(girder.isDestructable)
   }
 
-  onGirderDestroyed() {
-    this.girdersRemaining--;
+  onGirderDestroyed(isDestructable) {
+    if (isDestructable) {
+      this.destructableGirdersRemaining--;
+    }
 
-    if (this.girdersRemaining == 0 && this.level < 50) {
-      this.scene.start("shop")
-//      this.nextLevel()
+    if (this.destructableGirdersRemaining == 0 && this.level < 50) {
+      if (window.gameState.playerCurrentHealth > 0) {
+        this.createDeathGirder()
+      } else {
+        if (this.countGoodGirdersMissed == 0) {
+          this.scene.start("bonus")
+        } else {
+          this.scene.start("shop")
+        }
+      }
     }
   }
 
   createPlayer() {
-    let tri = Phaser.Geom.Triangle.BuildEquilateral(35, 0, 70);
+    var tri = Phaser.Geom.Triangle.BuildEquilateral(35, 0, 70);
 
     this.player = this.add.graphics({lineStyle: { width: 2, color: 0x0 }})
     this.player.strokeTriangleShape(tri)
@@ -281,9 +521,9 @@ class LevelScene extends Phaser.Scene {
       self.usingCursors = false
 
       if (isLeft) {
-        this.player.body.setVelocityX(-this.playerSpeed)
+        this.player.body.setVelocityX(-window.gameState.playerSpeed)
       } else {
-        this.player.body.setVelocityX(this.playerSpeed)
+        this.player.body.setVelocityX(window.gameState.playerSpeed)
       }
     })
     this.input.on('pointerup', () => {
@@ -295,18 +535,19 @@ class LevelScene extends Phaser.Scene {
     const { left, right } = this.cursors;
 
     if (left.isDown) {
-      this.player.body.setVelocityX(-this.playerSpeed)
+      this.player.body.setVelocityX(-window.gameState.playerSpeed)
       self.usingCursors = true
     } else if (right.isDown) {
-      this.player.body.setVelocityX(this.playerSpeed)
+      this.player.body.setVelocityX(window.gameState.playerSpeed)
       self.usingCursors = true
     } else if (self.usingCursors) {
       this.player.body.setVelocityX(0)
     }
 
-    this.txtCoins.setText("Coins: " + this.coins)
+    this.txtCoins.setText("Coins: " + window.gameState.coins)
     this.txtLevel.setText("Level: " + this.level)
-    this.txtGirders.setText("Girders: " + this.girdersRemaining)
+    this.txtGirders.setText("Girders: " + this.destructableGirdersRemaining)
+    this.txtHp.setText("Health: " + window.gameState.playerCurrentHealth)
   }
 }
 
@@ -316,7 +557,7 @@ const config = {
   backgroundColor: '#dee3e7',
   width: 800,
   height: 600,
-  scene: [ LevelScene, ShopScene ],
+  scene: [ ShopScene, LevelScene, BonusScene ],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -333,4 +574,5 @@ const config = {
   },
 }
 
+window.gameState = new GameState()
 new Phaser.Game(config)
