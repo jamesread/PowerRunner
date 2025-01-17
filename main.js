@@ -1,9 +1,11 @@
 class GameState {
   constructor() {
+    this.level = 1
     this.coins = 25
     this.girderValue = 20
+    this.endGirderCount = 1
     this.playerSpeed = 70
-    this.playerMaxHealth = 250
+    this.playerMaxHealth = 100
     this.playerCurrentHealth = this.playerMaxHealth
   }
 }
@@ -16,6 +18,34 @@ class ShopItem {
 
   getLevel() {
     return this.level
+  }
+}
+
+class ShopItemEndGirderCount extends ShopItem {
+  onBuy() {
+    window.gameState.endGirderCount++
+  }
+
+  getName() {
+    return "Extra End Girder"
+  }
+
+  getCost() {
+    return this.level * 70
+  }
+}
+
+class ShopItemRepair extends ShopItem {
+  onBuy() {
+    window.gameState.playerCurrentHealth = Math.min(window.gameState.playerCurrentHealth + 30, window.gameState.playerMaxHealth)
+  }
+
+  getCost() {
+    return 30
+  }
+
+  getName() {
+    return "Repair 30 HP"
   }
 }
 
@@ -43,7 +73,7 @@ class ShopItemRefinery extends ShopItem {
   }
 
   getCost() {
-    return this.level * 3
+    return this.level * 45
   }
 }
 
@@ -53,11 +83,25 @@ class ShopItemHealth extends ShopItem {
   }
 
   getName() {
-    return "Health"
+    return "Max HP +50"
   }
 
   getCost() {
-    return Math.floor((this.level * 3) * 2.2)
+    return Math.floor((this.level * 3) * 14)
+  }
+}
+
+class DeathScene extends Phaser.Scene {
+  constructor() {
+    super({
+      key: 'death',
+      active: false,
+    })
+  }
+
+  create() {
+    this.txtTitle = this.add.text(300, 10, "GAME OVER", {fontSize: 30, color: "black" })
+    this.txtTitle = this.add.text(300, 200, "Ending Level: " + window.gameState.level, {fontSize: 30, color: "black" })
   }
 }
 
@@ -131,6 +175,8 @@ class ShopScene extends Phaser.Scene {
     this.constructShopItem(new ShopItemSpeed())
     this.constructShopItem(new ShopItemRefinery())
     this.constructShopItem(new ShopItemHealth())
+    this.constructShopItem(new ShopItemRepair())
+    this.constructShopItem(new ShopItemEndGirderCount())
   }
 
   constructShopItem(i) {
@@ -141,10 +187,12 @@ class ShopScene extends Phaser.Scene {
     var textStyle = {color: "#000000", fontSize: 16, fontFamily: "sens-serif"}
 
     this.txtCoins = this.add.text(10, 10, "coins", textStyle)
-    this.txtShopTitle = this.add.text(300, 10, "Shop", textStyle)
+    this.txtHp = this.add.text(100, 10, "hp", textStyle)
+
+    this.txtShopTitle = this.add.text(70, 120, "Shop", textStyle)
     this.txtShopTitle.setFontSize(30);
 
-    this.btnNextLevel = this.createGuiButton("Next Level", () => { this.onBtnNextLevelClicked() }, {region: "br", style: "good"})
+    this.btnNextLevel = this.createGuiButton('Start Level ' + window.gameState.level, () => { this.onBtnNextLevelClicked() }, {region: "br", style: "good"})
 
     this.createShopButtons()
   }
@@ -168,8 +216,8 @@ class ShopScene extends Phaser.Scene {
     }
 
     if (position.region == "br") {
-      position.x = 550
-      position.y = 500
+      position.x = 660
+      position.y = 550
     }
 
     return position
@@ -266,6 +314,8 @@ class ShopScene extends Phaser.Scene {
 
   update() {
     this.txtCoins.setText("Coins: " + window.gameState.coins)
+
+    this.txtHp.setText("Health: " + window.gameState.playerCurrentHealth + " / " + window.gameState.playerMaxHealth)
   }
 }
 
@@ -279,12 +329,7 @@ class LevelScene extends Phaser.Scene {
       key: "level"
     });
 
-    this.girderSpeed = 130;
     this.destructableGirdersRemaining = 0;
-
-    // hud
-    this.level = 0;
-    console.log("lvlscene")
   }
 
   create() {
@@ -296,9 +341,13 @@ class LevelScene extends Phaser.Scene {
     this.cursors = this.input.keyboard.createCursorKeys();
     this.usingCursors = false;
 
+    this.endGirderCount = window.gameState.endGirderCount
+
     this.createHud()
 
     this.nextLevel()
+
+    this.girderSpeed = 130 + (this.level * 5);
   }
 
   quitLevel() {
@@ -309,10 +358,10 @@ class LevelScene extends Phaser.Scene {
     this.levelUpAnimation.restart()
     this.tweenLevelCounter.restart();
 
-    this.level++;
+    this.level = window.gameState.level // temporary hack until all references are updated
+    window.gameState.level++;
 
     this.countGoodGirdersMissed = 0;
-    window.gameState.playerCurrentHealth = window.gameState.playerMaxHealth
 
     var girderCount = this.level * 2;
     var girderInterval = 900 - (this.level / 5);
@@ -331,8 +380,8 @@ class LevelScene extends Phaser.Scene {
 
     this.txtCoins = this.add.text(10, 10, "coins", textStyle)
     this.txtCoins.setShadow(1, 1, '#ffffff')
-    this.txtLevel = this.add.text(200, 10, "lvl", textStyle)
-    this.txtHp = this.add.text(300, 10, "hp", textStyle)
+    this.txtLevel = this.add.text(300, 10, "lvl", textStyle)
+    this.txtHp = this.add.text(100, 10, "hp", textStyle)
 
     this.tweenLevelCounter = this.tweens.addCounter({
       from: 0,
@@ -395,6 +444,14 @@ class LevelScene extends Phaser.Scene {
       duration: 100,
       onUpdate: (tween) => {
         this.txtHp.setFontSize(16 + (3 * tween.getValue()))
+
+        let r = parseInt((window.gameState.playerCurrentHealth / window.gameState.playerMaxHealth) * 100)
+        r = 100 - r
+        r = Math.max(10, r)
+        r = Math.min(99, r)
+        r = "#" + r.toString() + "0000"
+
+        this.txtHp.setColor(r)
       }
     });
   }
@@ -402,6 +459,16 @@ class LevelScene extends Phaser.Scene {
   addCoins(v) {
     window.gameState.coins += v
     this.tweenCoinsChanged.restart()
+  }
+
+  changeHealth(x) {
+    window.gameState.playerCurrentHealth += x
+
+    if (window.gameState.playerCurrentHealth <= 0) {
+      this.scene.start('death')
+    }
+
+    this.tweenHpChanged.restart()
   }
 
   createFloor() {
@@ -440,18 +507,18 @@ class LevelScene extends Phaser.Scene {
     this.physics.world.enable(this.girder);
     this.girder.setPosition(x, 100)
     this.girder.body.setSize(w, h)
-    
-    if (isDestructable) {
-      this.girder.body.setVelocityY(this.girderSpeed)
-    } else {
-      this.girder.body.setVelocityY(this.girderSpeed * 2)
-    }
+
+    this.girder.body.setVelocityY(this.girderSpeed)
 
     this.physics.add.collider(this.girder, this.player, (g, p) => { this.onGirderCollidePlayer(g, p) } )
     this.physics.add.collider(this.girder, this.floor, (g, f) => { this.onGirderCollideFloor(g, f) } )
   }
 
-  createDeathGirder() {
+  createEndGirder() {
+    this.endGirderCount--
+
+    this.girderSpeed += (50 * this.endGirderCount)
+
     this.createGirder(false)
   }
 
@@ -464,11 +531,11 @@ class LevelScene extends Phaser.Scene {
         this.addCoins(window.gameState.girderValue)
       } else {
         this.addCoins(-10)
+        this.changeHealth(-10)
       }
     } else {
-      window.gameState.playerCurrentHealth -= 100
       this.tweenHpChanged.restart()
-      this.addCoins(10)
+      this.addCoins(window.gameState.girderValue)
     }
 
     this.onGirderDestroyed(girder.isDestructable)
@@ -490,8 +557,8 @@ class LevelScene extends Phaser.Scene {
     }
 
     if (this.destructableGirdersRemaining == 0 && this.level < 50) {
-      if (window.gameState.playerCurrentHealth > 0) {
-        this.createDeathGirder()
+      if (this.endGirderCount > 0) {
+        this.createEndGirder()
       } else {
         if (this.countGoodGirdersMissed == 0) {
           this.scene.start("bonus")
@@ -547,7 +614,7 @@ class LevelScene extends Phaser.Scene {
     this.txtCoins.setText("Coins: " + window.gameState.coins)
     this.txtLevel.setText("Level: " + this.level)
     this.txtGirders.setText("Girders: " + this.destructableGirdersRemaining)
-    this.txtHp.setText("Health: " + window.gameState.playerCurrentHealth)
+    this.txtHp.setText("Health: " + window.gameState.playerCurrentHealth + " / " + window.gameState.playerMaxHealth)
   }
 }
 
@@ -557,7 +624,7 @@ const config = {
   backgroundColor: '#dee3e7',
   width: 800,
   height: 600,
-  scene: [ ShopScene, LevelScene, BonusScene ],
+  scene: [ ShopScene, LevelScene, BonusScene, DeathScene ],
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
