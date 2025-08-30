@@ -91,6 +91,8 @@ class ShopItemHealth extends ShopItem {
   }
 }
 
+import Phaser from 'phaser'
+
 class DeathScene extends Phaser.Scene {
   constructor() {
     super({
@@ -216,8 +218,8 @@ class ShopScene extends Phaser.Scene {
     }
 
     if (position.region == "br") {
-      position.x = 660
-      position.y = 550
+      position.x = this.sys.game.canvas.width - 150;
+      position.y = this.sys.game.canvas.height - 50;
     }
 
     return position
@@ -618,28 +620,28 @@ class LevelScene extends Phaser.Scene {
   }
 }
 
-const config = {
-  type: Phaser.AUTO,
-  parent: 'gamearea',
-  backgroundColor: '#dee3e7',
-  width: 800,
-  height: 600,
-  scene: [ ShopScene, LevelScene, BonusScene, DeathScene ],
-  scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH,
-  },
-  autoRound: true,
-  audio: {
-    disableWebAudio: true,
-  },
-  physics: {
-    default: 'arcade',
-    arcade: {
-      debug: true,
+export function main() {
+  const config = {
+    type: Phaser.AUTO,
+    parent: 'gamearea',
+    backgroundColor: '#dee3e7',
+    scene: [ ShopScene, LevelScene, BonusScene, DeathScene ],
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
     },
-  },
-}
+    autoRound: true,
+    audio: {
+      disableWebAudio: true,
+    },
+    physics: {
+      default: 'arcade',
+      arcade: {
+        debug: true,
+      },
+    },
+  }
 
-window.gameState = new GameState()
-new Phaser.Game(config)
+  window.gameState = new GameState()
+  new Phaser.Game(config)
+}
