@@ -2,7 +2,7 @@ DATE := $(shell date +%s)
 
 frontend:
 	npm ci
-	vite build
+	npx vite build
 
 container: frontend
 	docker kill pr || true 
