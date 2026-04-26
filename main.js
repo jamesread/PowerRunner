@@ -91,7 +91,7 @@ class ShopItemHealth extends ShopItem {
   }
 }
 
-import Phaser from 'phaser'
+import * as Phaser from './node_modules/phaser/dist/phaser.esm.js'
 
 class DeathScene extends Phaser.Scene {
   constructor() {
