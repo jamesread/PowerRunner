@@ -1,17 +1,21 @@
 DATE := $(shell date +%s)
+IMAGE := ghcr.io/jamesread/powerrunner:$(DATE)
+
+.PHONY: frontend image container publish
 
 frontend:
 	npm ci
-	npx vite build
+	npm run lint
+	npm test
+	npm run build
 
-container: frontend
-	docker kill pr || true 
+image: frontend
+	docker build . --file Dockerfile -t $(IMAGE)
+
+container: image
+	docker kill pr || true
 	docker rm pr || true
-	docker build . --file Dockerfile -t ghcr.io/jamesread/powerrunner:${DATE}
-	docker run -p 3000:3000 -d --name pr ghcr.io/jamesread/powerrunner:${DATE}
+	docker run -p 3000:3000 -d --name pr $(IMAGE)
 
-publish: container
-	docker push ghcr.io/jamesread/powerrunner:${DATE}
-
-
-.PHONY: default publish
+publish: image
+	docker push $(IMAGE)

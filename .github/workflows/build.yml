@@ -1,8 +1,12 @@
 name: build
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
+  contents: read
   packages: write
 
 jobs:
@@ -10,21 +14,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Use NodeJS
+      - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          cache: 'npm'
-          node-version-file: 'package.json'
-          cache-dependency-path: 'package-lock.json'
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Build container image
+        if: github.event_name == 'pull_request'
+        run: make image
 
       - name: Login to ghcr
-        uses: docker/login-action@v2
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: make
+      - name: Build and publish container
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: make publish

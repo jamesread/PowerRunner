@@ -1,0 +1,11 @@
+node_modules
+.git
+.github
+tmp
+test
+scripts
+src
+*.md
+.editorconfig
+vitest.config.js
+Makefile
